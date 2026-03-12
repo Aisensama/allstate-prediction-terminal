@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <meta name="format-detection" content="telephone=no" />
   <title>Allstate Severity Terminal</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -217,6 +218,7 @@
             }]
           },
           options: {
+            devicePixelRatio: window.devicePixelRatio || 1,
             responsive: true,
             maintainAspectRatio: false,
             animation: { duration: 1500, easing: 'easeOutQuart' },
@@ -278,6 +280,7 @@
             }]
           },
           options: {
+            devicePixelRatio: window.devicePixelRatio || 1,
             responsive: true,
             maintainAspectRatio: false,
             animation: { duration: 1500, easing: 'easeOutQuart' },
