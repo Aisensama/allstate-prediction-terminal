@@ -7,6 +7,396 @@
   <title>Allstate Severity Terminal</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    .driver-row {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .driver-label {
+      color: #9aa7c7;
+      font-size: 12px;
+      letter-spacing: 0.25px;
+      font-family: 'SF Mono', monospace;
+    }
+    .driver-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(11, 16, 37, 0.86);
+      color: #ecf2ff;
+      font-family: 'SF Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      text-transform: none;
+    }
+    .driver-badge.pulse-alert {
+      animation: driverPulse 1.5s ease-in-out infinite;
+      border-color: rgba(255, 77, 77, 0.75);
+      box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.55);
+    }
+    @keyframes driverPulse {
+      0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.6); }
+      70% { box-shadow: 0 0 0 12px rgba(255, 77, 77, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
+    }
+    .metrics-btn {
+      margin-left: 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(10, 16, 35, 0.72);
+      color: #dce6ff;
+      font-family: 'SF Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.35px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .metrics-btn:hover {
+      border-color: rgba(0,230,118,0.55);
+      color: #f6fbff;
+    }
+    .metrics-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(3, 8, 20, 0.75);
+      backdrop-filter: blur(4px);
+      z-index: 999;
+    }
+    .metrics-modal.open {
+      display: flex;
+    }
+    .metrics-panel {
+      width: min(920px, 95vw);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 18px;
+      background: linear-gradient(170deg, rgba(10,16,37,0.96), rgba(15,25,48,0.95));
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
+    }
+    .metrics-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .metrics-title {
+      color: #ecf2ff;
+      font-family: 'SF Mono', monospace;
+      font-size: 14px;
+      letter-spacing: 0.4px;
+      margin: 0;
+    }
+    .metrics-close {
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.04);
+      color: #cfd8ec;
+      border-radius: 7px;
+      padding: 5px 9px;
+      font-family: 'SF Mono', monospace;
+      cursor: pointer;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .metric-card {
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.03);
+    }
+    .metric-name {
+      color: #9fb0d3;
+      font-size: 11px;
+      font-family: 'SF Mono', monospace;
+      margin-bottom: 8px;
+    }
+    .metric-value {
+      color: #f4f8ff;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .metric-note {
+      color: #8c9abb;
+      font-size: 11px;
+      font-family: 'SF Mono', monospace;
+    }
+    .metric-reliability.excellent {
+      color: #00cc66;
+    }
+    .accuracy-graph {
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+    }
+    .graph-row {
+      display: grid;
+      grid-template-columns: 90px 1fr 52px;
+      align-items: center;
+      gap: 10px;
+      margin: 8px 0;
+      color: #ced8ef;
+      font-family: 'SF Mono', monospace;
+      font-size: 11px;
+    }
+    .graph-track {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .graph-fill {
+      height: 100%;
+      border-radius: inherit;
+    }
+    .graph-fill.xgb { width: 28%; background: linear-gradient(90deg, #00cc66, #2af598); }
+    .graph-fill.glm { width: 68%; background: linear-gradient(90deg, #ffae42, #ff7a00); }
+    .graph-fill.grm { width: 76%; background: linear-gradient(90deg, #ff8a5b, #ff5252); }
+    .graph-fill.tweedie { width: 84%; background: linear-gradient(90deg, #ff6b6b, #ff3b3b); }
+    .graph-footnote {
+      margin-top: 10px;
+      color: #97a8ca;
+      font-size: 11px;
+      font-family: 'SF Mono', monospace;
+    }
+    @media (max-width: 760px) {
+      .metric-grid { grid-template-columns: 1fr; }
+    }
+
+    /* OLED overrides */
+    body {
+      background: #000000 !important;
+      color: #aaaaaa;
+    }
+    .glass-card,
+    .metrics-panel,
+    .metric-card,
+    .accuracy-graph,
+    .chart-wrap,
+    .radar-wrap {
+      background: #0a0a0a !important;
+      border: 1px solid #222222 !important;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+    }
+    .btn-execute {
+      box-shadow: 0 0 15px rgba(0, 204, 102, 0.4) !important;
+    }
+    .metrics-modal {
+      background: rgba(0, 0, 0, 0.85) !important;
+    }
+    .result-label,
+    .result-sub,
+    .card-title,
+    .card-subtitle,
+    .driver-label,
+    .metric-name,
+    .metric-note,
+    .graph-row,
+    .legend-label,
+    .field-label {
+      color: #aaaaaa !important;
+    }
+
+    .top-bar,
+    .bottom-bar {
+      background: #050505 !important;
+      border: 1px solid #222222 !important;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    }
+    .logo-text,
+    .logo-icon {
+      color: #f2f2f2 !important;
+    }
+    .status-pill {
+      background: #0a0a0a !important;
+      color: #d0d0d0 !important;
+      border: 1px solid #222222 !important;
+    }
+    .status-dot {
+      background: #00cc66 !important;
+      box-shadow: 0 0 8px rgba(0, 204, 102, 0.7);
+    }
+
+    .glass-input,
+    .glass-slider {
+      background: #080808 !important;
+      color: #f0f0f0 !important;
+      border: 1px solid #222222 !important;
+    }
+    .glass-input:focus,
+    .glass-slider:focus {
+      outline: none;
+      border-color: #00cc66 !important;
+      box-shadow: 0 0 0 3px rgba(0, 204, 102, 0.16) !important;
+    }
+    .glass-input option {
+      background: #080808;
+      color: #f0f0f0;
+    }
+
+    .glass-slider::-webkit-slider-runnable-track {
+      background: #1a1a1a;
+      border: 1px solid #222222;
+    }
+    .glass-slider::-webkit-slider-thumb {
+      background: #00cc66;
+      box-shadow: 0 0 10px rgba(0, 204, 102, 0.45);
+    }
+    .glass-slider::-moz-range-track {
+      background: #1a1a1a;
+      border: 1px solid #222222;
+    }
+    .glass-slider::-moz-range-thumb {
+      background: #00cc66;
+      box-shadow: 0 0 10px rgba(0, 204, 102, 0.45);
+    }
+
+    .metrics-btn,
+    .metrics-close,
+    .driver-badge,
+    #triage-badge {
+      background: #0a0a0a !important;
+      color: #f0f0f0 !important;
+      border-color: #222222 !important;
+    }
+    #triage-badge {
+      border-width: 1px !important;
+      border-style: solid !important;
+      font-weight: 700;
+      letter-spacing: 0.35px;
+      text-transform: uppercase;
+      background: rgba(6, 10, 8, 0.88) !important;
+      transition: box-shadow 240ms ease, border-color 240ms ease, transform 240ms ease;
+    }
+    #triage-badge.show {
+      transform: translateY(0) scale(1.01);
+    }
+    .metrics-btn:hover,
+    .metrics-close:hover {
+      border-color: #00cc66 !important;
+      box-shadow: 0 0 12px rgba(0, 204, 102, 0.22);
+    }
+
+    .orb {
+      filter: blur(40px) saturate(1.05) !important;
+      opacity: 0.22 !important;
+    }
+
+    /* Motion layer */
+    .top-bar {
+      animation: topBarIn 480ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .bottom-bar {
+      animation: bottomBarIn 520ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .glass-card {
+      opacity: 0;
+      transform: translateY(14px) scale(0.99);
+      animation: panelIn 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .input-panel { animation-delay: 80ms; }
+    .center-panel { animation-delay: 170ms; }
+    .radar-panel { animation-delay: 260ms; }
+
+    .btn-execute {
+      position: relative;
+      overflow: hidden;
+      animation: executePulse 2.8s ease-in-out infinite;
+    }
+    .btn-execute::after {
+      content: '';
+      position: absolute;
+      top: -20%;
+      left: -30%;
+      width: 30%;
+      height: 140%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+      transform: skewX(-20deg);
+      animation: sweep 2.6s linear infinite;
+      pointer-events: none;
+    }
+
+    .chart-wrap,
+    .radar-wrap,
+    #triage-badge {
+      transform: translateY(5px);
+      transition: opacity 300ms ease, transform 300ms ease;
+    }
+    .chart-wrap.visible,
+    .radar-wrap.visible,
+    #triage-badge.show {
+      transform: translateY(0);
+    }
+
+    .metrics-modal.open .metrics-panel {
+      animation: modalIn 280ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .graph-fill {
+      transform-origin: left center;
+      animation: barGrow 900ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @keyframes panelIn {
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes topBarIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes bottomBarIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes executePulse {
+      0%, 100% { box-shadow: 0 0 15px rgba(0, 204, 102, 0.36); }
+      50% { box-shadow: 0 0 24px rgba(0, 204, 102, 0.55); }
+    }
+    @keyframes sweep {
+      0% { transform: translateX(-180%) skewX(-20deg); }
+      100% { transform: translateX(520%) skewX(-20deg); }
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes barGrow {
+      from { transform: scaleX(0.15); }
+      to { transform: scaleX(1); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .top-bar,
+      .bottom-bar,
+      .glass-card,
+      .btn-execute,
+      .btn-execute::after,
+      .metrics-modal.open .metrics-panel,
+      .graph-fill {
+        animation: none !important;
+      }
+      .chart-wrap,
+      .radar-wrap,
+      #triage-badge {
+        transition: none !important;
+      }
+    }
+  </style>
 </head>
 <body>
 
@@ -25,6 +415,7 @@
       <span class="status-dot"></span>
       MODEL ONLINE
     </div>
+    <button id="open-metrics" class="metrics-btn" type="button">MODEL VALIDATION</button>
   </header>
 
   <!-- ───── 3-panel HUD grid ───── -->
@@ -38,31 +429,31 @@
       <form id="predict-form" autocomplete="off">
 
         <!-- Cat 1 -->
-        <label class="field-label" for="cat1">Category 1</label>
+        <label class="field-label" for="cat1">Vehicle Use Type (Private/Commercial):</label>
         <select id="cat1" name="cat1" class="glass-input" required>
-          <option value="" disabled selected>Select Cat 1</option>
-          <option value="0">A</option>
-          <option value="1">B</option>
+          <option value="" disabled selected>Select Options</option>
+          <option value="0">Standard Private</option>
+          <option value="1">Commercial/Fleet</option>
         </select>
 
         <!-- Cat 2 -->
-        <label class="field-label" for="cat2">Category 2</label>
+        <label class="field-label" for="cat2">Coverage Tier (Policy Level):</label>
         <select id="cat2" name="cat2" class="glass-input" required>
-          <option value="" disabled selected>Select Cat 2</option>
-          <option value="0">A</option>
-          <option value="1">B</option>
+          <option value="" disabled selected>Select Options</option>
+          <option value="0">Basic Liability</option>
+          <option value="1">Comprehensive Gold</option>
         </select>
 
         <!-- Cont 1 — Slider -->
         <label class="field-label" for="cont1">
-          Continuous 1 <span class="slider-val" id="cont1-val">0.50</span>
+          Driver Risk History Index (0-1): <span class="slider-val" id="cont1-val">0.50</span>
         </label>
         <input id="cont1" name="cont1" type="range" min="0" max="1" step="0.01"
                value="0.50" class="glass-slider" required />
 
         <!-- Cont 2 — Slider -->
         <label class="field-label" for="cont2">
-          Continuous 2 <span class="slider-val" id="cont2-val">0.50</span>
+          Vehicle Engineering Safety Score (0-1):<span class="slider-val" id="cont2-val">0.50</span>
         </label>
         <input id="cont2" name="cont2" type="range" min="0" max="1" step="0.01"
                value="0.50" class="glass-slider" required />
@@ -81,6 +472,10 @@
       <div class="result-block" id="result-block">
         <p class="result-label">Predicted Claim Severity</p>
         <h1 class="result-value" id="result-value">&mdash;</h1>
+        <div class="driver-row">
+          <span class="driver-label">Key Cost Driver</span>
+          <span id="driver-badge" class="driver-badge">Awaiting prediction</span>
+        </div>
         <p class="result-sub" id="result-sub">Submit parameters to generate prediction</p>
       </div>
 
@@ -88,6 +483,7 @@
       <div class="chart-wrap" id="chart-wrap">
         <canvas id="severity-chart"></canvas>
       </div>
+      <div id="triage-badge" style="display:none;margin-top:12px;padding:10px 12px;border-radius:10px;color:#f5f7ff;background:#1f2937;border:1px solid rgba(255,255,255,0.14);font-family:'SF Mono',monospace;font-size:12px;letter-spacing:0.3px;"></div>
 
     </section>
 
@@ -114,6 +510,57 @@
     <span>XGBoost v130-col &bull; Log-transform reversed &bull; Baseline $2,500</span>
   </footer>
 
+  <div id="metrics-modal" class="metrics-modal" role="dialog" aria-modal="true" aria-labelledby="metrics-title">
+    <div class="metrics-panel">
+      <div class="metrics-header">
+        <h3 id="metrics-title" class="metrics-title">Model Validation</h3>
+        <button id="close-metrics" class="metrics-close" type="button">CLOSE</button>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-name">Mean Absolute Error (MAE)</div>
+          <div id="metric-mae" class="metric-value">$--</div>
+          <div class="metric-note">Average Prediction Variance.</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-name">Model Confidence (R²)</div>
+          <div id="metric-r2" class="metric-value">--%</div>
+          <div class="metric-note">Variance Explained.</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-name">Reliability Score</div>
+          <div id="metric-reliability" class="metric-value metric-reliability">--</div>
+          <div class="metric-note">Derived from validation confidence.</div>
+        </div>
+      </div>
+
+      <div class="accuracy-graph">
+        <div class="graph-row">
+          <span>XGBoost</span>
+          <div class="graph-track"><div class="graph-fill xgb"></div></div>
+          <span>LOW</span>
+        </div>
+        <div class="graph-row">
+          <span>GLM</span>
+          <div class="graph-track"><div class="graph-fill glm"></div></div>
+          <span>MED</span>
+        </div>
+        <div class="graph-row">
+          <span>GRM</span>
+          <div class="graph-track"><div class="graph-fill grm"></div></div>
+          <span>MED+</span>
+        </div>
+        <div class="graph-row">
+          <span>Tweedie</span>
+          <div class="graph-track"><div class="graph-fill tweedie"></div></div>
+          <span>HIGH</span>
+        </div>
+        <div id="grm-footnote" class="graph-footnote">GRM RMSE: --</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ───── script ───── -->
   <script>
     (() => {
@@ -122,6 +569,15 @@
       const btnExec   = document.getElementById('btn-exec');
       const resultVal = document.getElementById('result-value');
       const resultSub = document.getElementById('result-sub');
+      const driverBadge = document.getElementById('driver-badge');
+      const triageBadge = document.getElementById('triage-badge');
+      const openMetricsBtn = document.getElementById('open-metrics');
+      const closeMetricsBtn = document.getElementById('close-metrics');
+      const metricsModal = document.getElementById('metrics-modal');
+      const metricMae = document.getElementById('metric-mae');
+      const metricR2 = document.getElementById('metric-r2');
+      const metricReliability = document.getElementById('metric-reliability');
+      const grmFootnote = document.getElementById('grm-footnote');
       const chartWrap = document.getElementById('chart-wrap');
       const radarWrap = document.getElementById('radar-wrap');
 
@@ -132,6 +588,61 @@
 
       let barChart   = null;
       let radarChart = null;
+
+      openMetricsBtn.addEventListener('click', async () => {
+        metricsModal.classList.add('open');
+        await loadMetrics();
+      });
+
+      closeMetricsBtn.addEventListener('click', () => {
+        metricsModal.classList.remove('open');
+      });
+
+      metricsModal.addEventListener('click', (e) => {
+        if (e.target === metricsModal) {
+          metricsModal.classList.remove('open');
+        }
+      });
+
+      function hexToRgba(hex, alpha) {
+        const normalized = hex.replace('#', '');
+        const full = normalized.length === 3
+          ? normalized.split('').map((c) => c + c).join('')
+          : normalized;
+        const r = parseInt(full.slice(0, 2), 16);
+        const g = parseInt(full.slice(2, 4), 16);
+        const b = parseInt(full.slice(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      async function loadMetrics() {
+        try {
+          const res = await fetch('/metrics');
+          const metrics = await res.json();
+
+          const mae = parseFloat(metrics.mae);
+          const r2 = parseFloat(metrics.r2_score);
+          const grmRmse = parseFloat(metrics.grm_rmse);
+
+          metricMae.textContent = '$' + mae.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          });
+          metricR2.textContent = (r2 * 100).toFixed(0) + '%';
+          metricReliability.textContent = r2 > 0.80 ? 'EXCELLENT' : 'STABLE';
+          metricReliability.classList.toggle('excellent', r2 > 0.80);
+          grmFootnote.textContent = 'GRM RMSE: $' + grmRmse.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          });
+        } catch (_) {
+          metricMae.textContent = 'Unavailable';
+          metricR2.textContent = 'Unavailable';
+          metricReliability.textContent = 'Unavailable';
+          metricReliability.classList.remove('excellent');
+          grmFootnote.textContent = 'GRM RMSE: Unavailable';
+        }
+      }
 
       /* ── live slider readouts ── */
       cont1Input.addEventListener('input', () => { cont1Val.textContent = parseFloat(cont1Input.value).toFixed(2); });
@@ -159,6 +670,10 @@
 
           const predicted = json.predicted;
           const baseline  = json.baseline;
+          const triageLevel = json.triage_level;
+          const triageAction = json.triage_action;
+          const triageColor = json.triage_color;
+          const topDriver = json.top_driver;
 
           /* Update hero number */
           resultVal.textContent = '$' + predicted.toLocaleString('en-US', {
@@ -170,8 +685,24 @@
             maximumFractionDigits: 2
           });
 
+          driverBadge.textContent = topDriver;
+          if (triageLevel === 'HIGH RISK') {
+            driverBadge.classList.add('pulse-alert');
+          } else {
+            driverBadge.classList.remove('pulse-alert');
+          }
+
+          triageBadge.style.display = 'block';
+          triageBadge.style.background = 'rgba(6, 10, 8, 0.88)';
+          triageBadge.style.borderColor = triageColor;
+          triageBadge.style.color = '#f2fff7';
+          triageBadge.style.boxShadow = `0 0 10px ${hexToRgba(triageColor, 0.45)}, 0 0 22px ${hexToRgba(triageColor, 0.25)}, inset 0 0 10px ${hexToRgba(triageColor, 0.2)}`;
+          triageBadge.textContent = triageLevel + ' | ' + triageAction;
+          requestAnimationFrame(() => triageBadge.classList.add('show'));
+
           /* Bar chart */
           chartWrap.style.opacity = '1';
+          chartWrap.classList.add('visible');
           renderBarChart(baseline, predicted);
 
           /* Radar chart — map inputs to normalized values */
@@ -183,11 +714,19 @@
             parseFloat(payload.cont2)
           ];
           radarWrap.style.opacity = '1';
+          radarWrap.classList.add('visible');
           renderRadarChart(radarData);
 
         } catch (err) {
           resultVal.textContent = 'Error';
           resultSub.textContent = err.message;
+          driverBadge.textContent = 'Unavailable';
+          driverBadge.classList.remove('pulse-alert');
+          triageBadge.classList.remove('show');
+          triageBadge.style.display = 'none';
+          triageBadge.style.boxShadow = 'none';
+          chartWrap.classList.remove('visible');
+          radarWrap.classList.remove('visible');
         } finally {
           btnExec.classList.remove('loading');
         }
@@ -240,17 +779,20 @@
             },
             scales: {
               x: {
-                ticks: { color: '#8892b0', font: { family: "'SF Mono', monospace", size: 11 } },
-                grid:  { color: 'rgba(255,255,255,0.04)' }
+                ticks: { color: '#ffffff', font: { family: "'SF Mono', monospace", size: 11 } },
+                title: { color: '#aaaaaa' },
+                grid:  { color: '#333333' }
               },
               y: {
                 beginAtZero: true,
+                max: Math.max(2500, baseline, predicted),
                 ticks: {
-                  color: '#8892b0',
+                  color: '#ffffff',
                   font: { family: "'SF Mono', monospace", size: 10 },
                   callback: (v) => '$' + v.toLocaleString()
                 },
-                grid: { color: 'rgba(255,255,255,0.04)' }
+                title: { color: '#aaaaaa' },
+                grid: { color: '#333333' }
               }
             }
           }
@@ -300,18 +842,18 @@
                 max: 1,
                 ticks: {
                   stepSize: 0.25,
-                  color: '#8892b0',
+                  color: '#ffffff',
                   backdropColor: 'transparent',
                   font: { family: "'SF Mono', monospace", size: 9 }
                 },
                 grid: {
-                  color: 'rgba(255,255,255,0.06)'
+                  color: '#333333'
                 },
                 angleLines: {
-                  color: 'rgba(255,255,255,0.06)'
+                  color: '#333333'
                 },
                 pointLabels: {
-                  color: '#8892b0',
+                  color: '#aaaaaa',
                   font: { family: "'SF Mono', monospace", size: 11 }
                 }
               }
